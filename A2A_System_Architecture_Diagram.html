@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A2A Travel Management — System Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #040810;
+    --bg2:       #080f1e;
+    --panel:     #0c1628;
+    --border:    rgba(99,179,237,0.15);
+    --border2:   rgba(99,179,237,0.35);
+    --blue:      #3b82f6;
+    --cyan:      #06b6d4;
+    --green:     #10b981;
+    --orange:    #f59e0b;
+    --red:       #ef4444;
+    --purple:    #8b5cf6;
+    --pink:      #ec4899;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --glow-blue: 0 0 20px rgba(59,130,246,0.4);
+    --glow-cyan: 0 0 20px rgba(6,182,212,0.4);
+    --glow-green:0 0 20px rgba(16,185,129,0.4);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Ambient glow blobs */
+  .ambient {
+    position: fixed; border-radius: 50%;
+    filter: blur(100px); pointer-events: none; z-index: 0;
+  }
+  .amb1 { width:500px; height:500px; top:-100px; left:-100px; background:rgba(59,130,246,0.07); }
+  .amb2 { width:400px; height:400px; bottom:0; right:-100px; background:rgba(6,182,212,0.06); }
+  .amb3 { width:300px; height:300px; top:40%; left:40%; background:rgba(139,92,246,0.05); }
+
+  .wrapper {
+    position: relative; z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    margin-bottom: 64px;
+  }
+  .tag {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--cyan);
+    border: 1px solid rgba(6,182,212,0.3);
+    padding: 5px 16px;
+    border-radius: 2px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px,4vw,52px);
+    font-weight: 800;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #e2e8f0 0%, #93c5fd 50%, #06b6d4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 300;
+  }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 56px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .legend-dot { width:10px; height:10px; border-radius:50%; }
+
+  /* ── LAYER SYSTEM ── */
+  .architecture {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .layer {
+    position: relative;
+    margin-bottom: 0;
+  }
+
+  .layer-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    padding-left: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .layer-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  /* ── CONNECTOR LINES ── */
+  .connector {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 48px;
+    position: relative;
+  }
+  .connector-line {
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(180deg, var(--border2), var(--border));
+    position: relative;
+  }
+  .connector-line::after {
+    content: '';
+    position: absolute;
+    bottom: -6px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid rgba(99,179,237,0.5);
+  }
+  .connector-label {
+    position: absolute;
+    right: calc(50% + 12px);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* Branching connector */
+  .multi-connector {
+    position: relative;
+    height: 56px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    margin: 0;
+  }
+  .multi-connector svg {
+    position: absolute;
+    width: 100%; height: 100%;
+    overflow: visible;
+  }
+
+  /* ── BOXES ── */
+  .box {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    position: relative;
+    transition: all 0.3s ease;
+    cursor: default;
+  }
+  .box:hover {
+    border-color: var(--border2);
+    transform: translateY(-2px);
+  }
+
+  /* Single wide box */
+  .box-full {
+    padding: 20px 28px;
+  }
+
+  /* Row of boxes */
+  .row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .row .box { flex: 1; }
+
+  /* Box header */
+  .box-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .box-icon {
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .box-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .box-sub {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Badge */
+  .badge {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 2px;
+    margin-top: 6px;
+  }
+
+  /* ── ACCENT VARIANTS ── */
+  .accent-blue  { --accent: var(--blue);   --acc-rgb: 59,130,246; }
+  .accent-cyan  { --accent: var(--cyan);   --acc-rgb: 6,182,212; }
+  .accent-green { --accent: var(--green);  --acc-rgb: 16,185,129; }
+  .accent-orange{ --accent: var(--orange); --acc-rgb: 245,158,11; }
+  .accent-purple{ --accent: var(--purple); --acc-rgb: 139,92,246; }
+  .accent-red   { --accent: var(--red);    --acc-rgb: 239,68,68; }
+  .accent-pink  { --accent: var(--pink);   --acc-rgb: 236,72,153; }
+
+  .box.accent-blue:hover   { box-shadow: 0 0 24px rgba(59,130,246,0.2); border-color: rgba(59,130,246,0.4); }
+  .box.accent-cyan:hover   { box-shadow: 0 0 24px rgba(6,182,212,0.2); border-color: rgba(6,182,212,0.4); }
+  .box.accent-green:hover  { box-shadow: 0 0 24px rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.4); }
+  .box.accent-orange:hover { box-shadow: 0 0 24px rgba(245,158,11,0.2); border-color: rgba(245,158,11,0.4); }
+  .box.accent-purple:hover { box-shadow: 0 0 24px rgba(139,92,246,0.2); border-color: rgba(139,92,246,0.4); }
+  .box.accent-red:hover    { box-shadow: 0 0 24px rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); }
+  .box.accent-pink:hover   { box-shadow: 0 0 24px rgba(236,72,153,0.2); border-color: rgba(236,72,153,0.4); }
+
+  .box-icon.accent-blue  { background: rgba(59,130,246,0.15); }
+  .box-icon.accent-cyan  { background: rgba(6,182,212,0.15); }
+  .box-icon.accent-green { background: rgba(16,185,129,0.15); }
+  .box-icon.accent-orange{ background: rgba(245,158,11,0.15); }
+  .box-icon.accent-purple{ background: rgba(139,92,246,0.15); }
+  .box-icon.accent-red   { background: rgba(239,68,68,0.15); }
+  .box-icon.accent-pink  { background: rgba(236,72,153,0.15); }
+
+  .badge.accent-blue  { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .badge.accent-cyan  { background: rgba(6,182,212,0.15); color: var(--cyan); }
+  .badge.accent-green { background: rgba(16,185,129,0.15); color: var(--green); }
+  .badge.accent-orange{ background: rgba(245,158,11,0.15); color: var(--orange); }
+  .badge.accent-purple{ background: rgba(139,92,246,0.15); color: var(--purple); }
+  .badge.accent-red   { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  /* Top-border accent */
+  .box[class*="accent-"]::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 0; right: 0;
+    height: 2px;
+    border-radius: 8px 8px 0 0;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+
+  /* ── ORCHESTRATOR ── */
+  .orchestrator {
+    padding: 28px 32px;
+    background: linear-gradient(135deg, #0c1628 0%, #0f1f3d 100%);
+    border-color: rgba(59,130,246,0.4);
+    box-shadow: 0 0 40px rgba(59,130,246,0.1), inset 0 1px 0 rgba(59,130,246,0.1);
+  }
+  .orchestrator::before { height: 3px; opacity: 1; }
+  .orch-inner {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 24px;
+    align-items: center;
+  }
+  .orch-badge-stack { display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+  .orch-details { text-align: center; }
+  .orch-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: white;
+    margin-bottom: 4px;
+  }
+  .orch-desc {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+  .orch-stats {
+    display: flex;
+    gap: 16px;
+  }
+  .orch-stat {
+    text-align: center;
+    padding: 10px 16px;
+    border-radius: 6px;
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.2);
+  }
+  .orch-stat-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--blue);
+    display: block;
+  }
+  .orch-stat-lbl {
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ── AGENTS GRID ── */
+  .agents-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .agent-box {
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    transition: all 0.3s;
+    cursor: default;
+    position: relative;
+  }
+  .agent-box:hover {
+    transform: translateY(-3px);
+  }
+  .agent-emoji { font-size: 22px; margin-bottom: 8px; display: block; }
+  .agent-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .agent-desc {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.4;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .agent-tech {
+    margin-top: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  /* ── DATA LAYER ── */
+  .data-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  /* ── EXTERNAL APIS ── */
+  .apis-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .api-pill {
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: rgba(8,15,30,0.8);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.25s;
+  }
+  .api-pill:hover {
+    border-color: rgba(99,179,237,0.3);
+    background: rgba(12,22,40,0.8);
+  }
+  .api-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .api-name { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text); }
+  .api-type { font-size: 9px; color: var(--muted); }
+
+  /* ── PUBSUB LAYER ── */
+  .pubsub {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .topic-box {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(245,158,11,0.25);
+    background: rgba(245,158,11,0.05);
+  }
+  .topic-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--orange);
+    margin-bottom: 3px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .topic-name {
+    font-size: 11px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* ── SECURITY STRIP ── */
+  .security-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 48px;
+    padding: 20px;
+    border: 1px solid rgba(239,68,68,0.15);
+    border-radius: 8px;
+    background: rgba(239,68,68,0.03);
+  }
+  .sec-item {
+    text-align: center;
+  }
+  .sec-icon { font-size: 20px; margin-bottom: 4px; }
+  .sec-label { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; }
+  .sec-value { font-size: 11px; color: var(--text); margin-top: 2px; font-weight: 500; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.3); }
+  }
+  @keyframes flow {
+    0% { stroke-dashoffset: 20; }
+    100% { stroke-dashoffset: 0; }
+  }
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(16px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  .layer { animation: fadeUp 0.6s ease both; }
+  .layer:nth-child(1)  { animation-delay: 0.05s; }
+  .layer:nth-child(2)  { animation-delay: 0.10s; }
+  .layer:nth-child(3)  { animation-delay: 0.15s; }
+  .layer:nth-child(4)  { animation-delay: 0.20s; }
+  .layer:nth-child(5)  { animation-delay: 0.25s; }
+  .layer:nth-child(6)  { animation-delay: 0.30s; }
+  .layer:nth-child(7)  { animation-delay: 0.35s; }
+  .layer:nth-child(8)  { animation-delay: 0.40s; }
+  .layer:nth-child(9)  { animation-delay: 0.45s; }
+  .layer:nth-child(10) { animation-delay: 0.50s; }
+
+  /* Live pulse on orchestrator */
+  .live-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse-dot 1.8s infinite;
+    margin-right: 5px;
+  }
+
+  /* SVG connector animated dashes */
+  .flow-path {
+    stroke-dasharray: 6 4;
+    animation: flow 1.5s linear infinite;
+  }
+
+  /* ── TOOLTIP ── */
+  .box[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%; transform: translateX(-50%);
+    background: #1e293b;
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text);
+    white-space: nowrap;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  /* ── SEPARATOR ── */
+  .sep {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border2), transparent);
+    margin: 48px 0;
+  }
+
+  /* Key metrics row */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-bottom: 48px;
+  }
+  .metric {
+    padding: 14px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    text-align: center;
+  }
+  .metric-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .metric-lbl {
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  @media (max-width: 900px) {
+    .agents-grid { grid-template-columns: repeat(2, 1fr); }
+    .apis-grid { grid-template-columns: repeat(2, 1fr); }
+    .metrics { grid-template-columns: repeat(3, 1fr); }
+    .orch-inner { grid-template-columns: 1fr; text-align: center; }
+    .orch-badge-stack { align-items: center; }
+    .data-grid { grid-template-columns: repeat(2, 1fr); }
+    .security-strip { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="ambient amb1"></div>
+<div class="ambient amb2"></div>
+<div class="ambient amb3"></div>
+
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="tag">System Architecture · v1.0</div>
+    <h1>A2A Travel Management<br>Agent Platform</h1>
+    <p class="subtitle">Google Cloud · Vertex AI · Multi-Agent Orchestration · Real-Time</p>
+  </header>
+
+  <!-- METRICS -->
+  <div class="metrics">
+    <div class="metric">
+      <span class="metric-val" style="color:var(--blue)">8</span>
+      <span class="metric-lbl">AI Agents</span>
+    </div>
+    <div class="metric">
+      <span class="metric-val" style="color:var(--cyan)">14</span>
+      <span class="metric-lbl">GCP Services</span>
+    </div>
+    <div class="metric">
+      <span class="metric-val" style="color:var(--green)">16</span>
+      <span class="metric-lbl">External APIs</span>
+    </div>
+    <div class="metric">
+      <span class="metric-val" style="color:var(--orange)">≤3s</span>
+      <span class="metric-lbl">p99 Latency</span>
+    </div>
+    <div class="metric">
+      <span class="metric-val" style="color:var(--purple)">98%</span>
+      <span class="metric-lbl">Booking SLO</span>
+    </div>
+    <div class="metric">
+      <span class="metric-val" style="color:var(--pink)">99.9%</span>
+      <span class="metric-lbl">Availability</span>
+    </div>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Ingress / Gateway</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--cyan)"></div>Orchestration</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Specialist Agents</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Messaging</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Data Layer</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--muted)"></div>External APIs</div>
+  </div>
+
+  <div class="architecture">
+
+    <!-- L1: USERS -->
+    <div class="layer">
+      <div class="layer-label">Layer 1 — External Actors</div>
+      <div class="row">
+        <div class="box box-full accent-blue" data-tip="Mobile / Web App · Firebase Auth">
+          <div class="box-head">
+            <div class="box-icon accent-blue">📱</div>
+            <div>
+              <div class="box-title">Traveler App</div>
+              <div class="box-sub">Flutter mobile · PWA web</div>
+            </div>
+          </div>
+          <span class="badge accent-blue">OAuth 2.0</span>
+        </div>
+        <div class="box box-full accent-cyan" data-tip="Real-time ops visibility · Looker Studio">
+          <div class="box-head">
+            <div class="box-icon accent-cyan">🖥</div>
+            <div>
+              <div class="box-title">Operations Dashboard</div>
+              <div class="box-sub">Looker Studio · BigQuery</div>
+            </div>
+          </div>
+          <span class="badge accent-cyan">IAP + MFA</span>
+        </div>
+        <div class="box box-full accent-green" data-tip="Post-trip expense processing">
+          <div class="box-head">
+            <div class="box-icon accent-green">🏦</div>
+            <div>
+              <div class="box-title">Finance System</div>
+              <div class="box-sub">SAP Concur / ERP</div>
+            </div>
+          </div>
+          <span class="badge accent-green">REST Webhook</span>
+        </div>
+        <div class="box box-full accent-purple" data-tip="Client meeting sync · approval chains">
+          <div class="box-head">
+            <div class="box-icon accent-purple">📅</div>
+            <div>
+              <div class="box-title">Google Workspace</div>
+              <div class="box-sub">Calendar · Gmail · Drive</div>
+            </div>
+          </div>
+          <span class="badge accent-purple">Google SSO</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR -->
+    <div class="connector">
+      <div class="connector-line"></div>
+      <span class="connector-label">HTTPS · TLS 1.3</span>
+    </div>
+
+    <!-- L2: GATEWAY -->
+    <div class="layer">
+      <div class="layer-label">Layer 2 — API Gateway & Security</div>
+      <div class="row">
+        <div class="box box-full accent-red" style="flex:0.8" data-tip="DDoS · Geo-blocking · OWASP Top 10">
+          <div class="box-head">
+            <div class="box-icon accent-red">🛡</div>
+            <div>
+              <div class="box-title">Cloud Armor WAF</div>
+              <div class="box-sub">DDoS protection · OWASP rules</div>
+            </div>
+          </div>
+          <span class="badge accent-red">Edge Shield</span>
+        </div>
+        <div class="box box-full accent-blue" style="flex:1.4" data-tip="Rate limiting · Auth · Request validation · OpenAPI 3.1">
+          <div class="box-head">
+            <div class="box-icon accent-blue">🔀</div>
+            <div>
+              <div class="box-title">Cloud Endpoints / API Gateway</div>
+              <div class="box-sub">Rate limiting · OpenAPI validation · OAuth 2.0 · Request ID injection</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+            <span class="badge accent-blue">100 req/min traveler</span>
+            <span class="badge accent-blue">500 req/min ops</span>
+            <span class="badge accent-blue">X-Request-ID trace</span>
+          </div>
+        </div>
+        <div class="box box-full accent-orange" style="flex:0.8" data-tip="Google IAP · Zero-trust · MFA for ops">
+          <div class="box-head">
+            <div class="box-icon accent-orange">🔐</div>
+            <div>
+              <div class="box-title">Identity-Aware Proxy</div>
+              <div class="box-sub">Zero-trust · MFA enforced</div>
+            </div>
+          </div>
+          <span class="badge accent-orange">Zero-Trust</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR -->
+    <div class="connector">
+      <div class="connector-line"></div>
+      <span class="connector-label">Authenticated Request</span>
+    </div>
+
+    <!-- L3: ORCHESTRATOR -->
+    <div class="layer">
+      <div class="layer-label">Layer 3 — Master Orchestration</div>
+      <div class="box orchestrator accent-blue">
+        <div class="orch-inner">
+          <div class="orch-badge-stack">
+            <span class="badge accent-blue"><span class="live-dot"></span>LIVE</span>
+            <span class="badge accent-green">Gemini 1.5 Pro</span>
+            <span class="badge accent-purple">Vertex AI</span>
+            <span class="badge accent-cyan">Cloud Run</span>
+          </div>
+          <div class="orch-details">
+            <div class="orch-title">Master Orchestrator Agent</div>
+            <div class="orch-desc">Intent Parsing · DAG Task Planning · Policy Engine · Agent Delegation · Response Aggregation</div>
+            <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+              <span class="badge accent-blue">IDLE → PARSING → POLICY_CHECK → PLANNING → DELEGATING → CONFIRMING → DONE</span>
+            </div>
+          </div>
+          <div class="orch-stats">
+            <div class="orch-stat">
+              <span class="orch-stat-val">500</span>
+              <span class="orch-stat-lbl">Max concurrent</span>
+            </div>
+            <div class="orch-stat">
+              <span class="orch-stat-val">3→50</span>
+              <span class="orch-stat-lbl">Instances</span>
+            </div>
+            <div class="orch-stat">
+              <span class="orch-stat-val">2vCPU</span>
+              <span class="orch-stat-lbl">4GB RAM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MULTI-CONNECTOR with branching SVG -->
+    <div class="layer" style="height:56px;position:relative;overflow:visible;">
+      <svg viewBox="0 0 1200 56" preserveAspectRatio="none" style="position:absolute;width:100%;height:100%;top:0;left:0;overflow:visible;">
+        <!-- Trunk -->
+        <line x1="600" y1="0" x2="600" y2="18" stroke="rgba(99,179,237,0.4)" stroke-width="2"/>
+        <!-- Branch line -->
+        <line x1="87" y1="18" x2="1113" y2="18" stroke="rgba(99,179,237,0.3)" stroke-width="1.5"/>
+        <!-- 8 drops -->
+        <line x1="87"   y1="18" x2="87"   y2="56" stroke="rgba(16,185,129,0.5)" stroke-width="1.5" stroke-dasharray="4,3" class="flow-path"/>
+        <line x1="237"  y1="18" x2="237"  y2="56" stroke="rgba(16,185,129,0.5)" stroke-width="1.5" stroke-dasharray="4,3" class="flow-path"/>
+        <line x1="387"  y1="18" x2="387"  y2="56" stroke="rgba(16,185,129,0.5)" stroke-width="1.5" stroke-dasharray="4,3" class="flow-path"/>
+        <line x1="537"  y1="18" x2="537"  y2="56" stroke="rgba(16,185,129,0.5)" stroke-width="1.5" stroke-dasharray="4,3" class="flow-path"/>
+        <line x1="663"  y1="18" x2="663"  y2="56" stroke="rgba(16,185,129,0.5)" stroke-width="1.5" stroke-dasharray="4,3" class="flow-path"/>
+        <line x1="813"  y1="18" x2="813"  y2="56" stroke="rgba(16,185,129,0.5)" stroke-width="1.5" stroke-dasharray="4,3" class="flow-path"/>
+        <line x1="963"  y1="18" x2="963"  y2="56" stroke="rgba(16,185,129,0.5)" stroke-width="1.5" stroke-dasharray="4,3" class="flow-path"/>
+        <line x1="1113" y1="18" x2="1113" y2="56" stroke="rgba(16,185,129,0.5)" stroke-width="1.5" stroke-dasharray="4,3" class="flow-path"/>
+        <!-- Arrowheads -->
+        <polygon points="87,53 83,46 91,46"  fill="rgba(16,185,129,0.6)"/>
+        <polygon points="237,53 233,46 241,46" fill="rgba(16,185,129,0.6)"/>
+        <polygon points="387,53 383,46 391,46" fill="rgba(16,185,129,0.6)"/>
+        <polygon points="537,53 533,46 541,46" fill="rgba(16,185,129,0.6)"/>
+        <polygon points="663,53 659,46 667,46" fill="rgba(16,185,129,0.6)"/>
+        <polygon points="813,53 809,46 817,46" fill="rgba(16,185,129,0.6)"/>
+        <polygon points="963,53 959,46 967,46" fill="rgba(16,185,129,0.6)"/>
+        <polygon points="1113,53 1109,46 1117,46" fill="rgba(16,185,129,0.6)"/>
+        <text x="600" y="14" text-anchor="middle" fill="rgba(100,116,139,0.9)" font-size="9" font-family="Space Mono,monospace">A2A Protocol — Parallel Task Delegation</text>
+      </svg>
+    </div>
+
+    <!-- L4: AGENTS -->
+    <div class="layer">
+      <div class="layer-label">Layer 4 — Specialist AI Agents (Cloud Run · Gemini)</div>
+      <div class="agents-grid">
+
+        <div class="agent-box accent-blue" style="border-color:rgba(59,130,246,0.3);">
+          <div class="agent-box::before"></div>
+          <span class="agent-emoji">✈</span>
+          <div class="agent-name" style="color:var(--blue)">Flight Agent</div>
+          <div class="agent-desc">GDS search · fare comparison · booking · rebooking · cancellation · loyalty</div>
+          <span class="agent-tech" style="background:rgba(59,130,246,0.1);color:var(--blue)">Amadeus · Sabre · Google Flights</span>
+        </div>
+
+        <div class="agent-box" style="border-color:rgba(6,182,212,0.3);">
+          <span class="agent-emoji">🏨</span>
+          <div class="agent-name" style="color:var(--cyan)">Hotel Agent</div>
+          <div class="agent-desc">Availability · rate cap enforcement · proximity filter · corporate rates · extensions</div>
+          <span class="agent-tech" style="background:rgba(6,182,212,0.1);color:var(--cyan)">Booking.com · Expedia · Marriott</span>
+        </div>
+
+        <div class="agent-box" style="border-color:rgba(16,185,129,0.3);">
+          <span class="agent-emoji">🚗</span>
+          <div class="agent-name" style="color:var(--green)">Transport Agent</div>
+          <div class="agent-desc">Airport transfers · car rental · metro routing · expense auto-tagging per journey</div>
+          <span class="agent-tech" style="background:rgba(16,185,129,0.1);color:var(--green)">Uber Business · IRCTC · Maps</span>
+        </div>
+
+        <div class="agent-box" style="border-color:rgba(245,158,11,0.3);">
+          <span class="agent-emoji">🗺</span>
+          <div class="agent-name" style="color:var(--orange)">Guide Agent</div>
+          <div class="agent-desc">Emergency contacts · embassy · hospitals · currency · local laws · safety score</div>
+          <span class="agent-tech" style="background:rgba(245,158,11,0.1);color:var(--orange)">Maps API · Numbeo · WHO</span>
+        </div>
+
+        <div class="agent-box" style="border-color:rgba(139,92,246,0.3);">
+          <span class="agent-emoji">💰</span>
+          <div class="agent-name" style="color:var(--purple)">Expense Agent</div>
+          <div class="agent-desc">Receipt OCR · auto-classify · personal/business split · policy validation · reports</div>
+          <span class="agent-tech" style="background:rgba(139,92,246,0.1);color:var(--purple)">Gemini Vision · Document AI</span>
+        </div>
+
+        <div class="agent-box" style="border-color:rgba(236,72,153,0.3);">
+          <span class="agent-emoji">📋</span>
+          <div class="agent-name" style="color:var(--pink)">Visa & Docs Agent</div>
+          <div class="agent-desc">Visa requirements · document checklist · passport validity · travel insurance check</div>
+          <span class="agent-tech" style="background:rgba(236,72,153,0.1);color:var(--pink)">Sherpa API · GCS Vault</span>
+        </div>
+
+        <div class="agent-box" style="border-color:rgba(239,68,68,0.3);">
+          <span class="agent-emoji">🔔</span>
+          <div class="agent-name" style="color:var(--red)">Safety Agent</div>
+          <div class="agent-desc">Flight delays · weather alerts · travel advisories · L1→L3 escalation · SOS response</div>
+          <span class="agent-tech" style="background:rgba(239,68,68,0.1);color:var(--red)">FlightAware · NOAA · State Dept</span>
+        </div>
+
+        <div class="agent-box" style="border-color:rgba(99,179,237,0.3);">
+          <span class="agent-emoji">📢</span>
+          <div class="agent-name" style="color:#93c5fd">Notify Agent</div>
+          <div class="agent-desc">Push · SMS · email · WhatsApp · approval requests · itinerary delivery · SOS</div>
+          <span class="agent-tech" style="background:rgba(99,179,237,0.1);color:#93c5fd">Twilio · SendGrid · FCM</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- CONNECTOR -->
+    <div class="connector">
+      <div class="connector-line"></div>
+      <span class="connector-label">Pub/Sub Async Events</span>
+    </div>
+
+    <!-- L5: MESSAGING -->
+    <div class="layer">
+      <div class="layer-label">Layer 5 — Async Messaging (Cloud Pub/Sub)</div>
+      <div class="pubsub">
+        <div class="topic-box">
+          <div class="topic-label">topic: bookings</div>
+          <div class="topic-name">Flight / Hotel / Transport confirmations → Expense Agent + BigQuery</div>
+        </div>
+        <div class="topic-box">
+          <div class="topic-label">topic: expenses</div>
+          <div class="topic-name">All spend events → Finance Export + BigQuery DWH</div>
+        </div>
+        <div class="topic-box">
+          <div class="topic-label">topic: alerts</div>
+          <div class="topic-name">Safety signals → Notify Agent → Traveler + Ops + Security</div>
+        </div>
+        <div class="topic-box">
+          <div class="topic-label">topic: approvals</div>
+          <div class="topic-name">Exception requests → Ops queue → Approval webhook</div>
+        </div>
+        <div class="topic-box">
+          <div class="topic-label">dead-letter queue</div>
+          <div class="topic-name">Failed messages → Human review → Cloud Logging alert</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR -->
+    <div class="connector">
+      <div class="connector-line"></div>
+      <span class="connector-label">Read / Write</span>
+    </div>
+
+    <!-- L6: DATA -->
+    <div class="layer">
+      <div class="layer-label">Layer 6 — Data Architecture</div>
+      <div class="data-grid">
+
+        <div class="box box-full accent-purple" data-tip="Real-time operational data · sub-10ms reads">
+          <div class="box-head">
+            <div class="box-icon accent-purple">🗄</div>
+            <div>
+              <div class="box-title">Firestore</div>
+              <div class="box-sub">trips · bookings · expenses · events · policies</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="badge accent-purple">Real-time</span>
+            <span class="badge accent-purple">Event sourcing</span>
+            <span class="badge accent-purple">7yr retention</span>
+          </div>
+        </div>
+
+        <div class="box box-full accent-cyan" data-tip="Analytics warehouse · complex queries · Dataflow ingest">
+          <div class="box-head">
+            <div class="box-icon accent-cyan">📊</div>
+            <div>
+              <div class="box-title">BigQuery DWH</div>
+              <div class="box-sub">fact_trips · fact_expenses · dim_travelers · dim_vendors</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="badge accent-cyan">Serverless</span>
+            <span class="badge accent-cyan">Partitioned by date</span>
+            <span class="badge accent-cyan">Looker Studio</span>
+          </div>
+        </div>
+
+        <div class="box box-full accent-orange" data-tip="Receipts · tickets · itineraries · documents">
+          <div class="box-head">
+            <div class="box-icon accent-orange">📁</div>
+            <div>
+              <div class="box-title">Cloud Storage (GCS)</div>
+              <div class="box-sub">Receipts · e-tickets · itinerary PDFs · visa docs</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="badge accent-orange">Nearline 90d</span>
+            <span class="badge accent-orange">Signed URLs 1hr</span>
+            <span class="badge accent-orange">CMEK encrypted</span>
+          </div>
+        </div>
+
+        <div class="box box-full accent-green" data-tip="Policy rules cache · agent responses · TTL-based">
+          <div class="box-head">
+            <div class="box-icon accent-green">⚡</div>
+            <div>
+              <div class="box-title">Memorystore (Redis)</div>
+              <div class="box-sub">Policy rule cache · Gemini response cache · session state</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="badge accent-green">sub-1ms reads</span>
+            <span class="badge accent-green">5 min TTL policies</span>
+            <span class="badge accent-green">80% Firestore offload</span>
+          </div>
+        </div>
+
+        <div class="box box-full accent-red" data-tip="API keys · credentials · auto-rotation 90 days">
+          <div class="box-head">
+            <div class="box-icon accent-red">🔑</div>
+            <div>
+              <div class="box-title">Secret Manager</div>
+              <div class="box-sub">All API keys · credentials · rotation policies</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="badge accent-red">90-day rotation</span>
+            <span class="badge accent-red">Access logged</span>
+            <span class="badge accent-red">Never in code</span>
+          </div>
+        </div>
+
+        <div class="box box-full accent-blue" data-tip="Immutable audit trail · 7 year retention · Cloud Trace">
+          <div class="box-head">
+            <div class="box-icon accent-blue">📋</div>
+            <div>
+              <div class="box-title">Cloud Logging + Trace</div>
+              <div class="box-sub">Structured logs · distributed traces · SLO monitoring</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="badge accent-blue">Immutable log</span>
+            <span class="badge accent-blue">Full trace per trip</span>
+            <span class="badge accent-blue">PagerDuty alerts</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- CONNECTOR -->
+    <div class="connector">
+      <div class="connector-line"></div>
+      <span class="connector-label">REST / GDS / Partner APIs</span>
+    </div>
+
+    <!-- L7: EXTERNAL APIS -->
+    <div class="layer">
+      <div class="layer-label">Layer 7 — External API Integrations</div>
+      <div class="apis-grid">
+        <div class="api-pill"><div class="api-dot" style="background:var(--blue)"></div><div><div class="api-name">Amadeus GDS</div><div class="api-type">Flight search & booking</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--blue)"></div><div><div class="api-name">Google Flights</div><div class="api-type">Price intelligence</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--cyan)"></div><div><div class="api-name">Booking.com API</div><div class="api-type">Hotel inventory</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--cyan)"></div><div><div class="api-name">Expedia Partners</div><div class="api-type">Hotel rates</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--green)"></div><div><div class="api-name">Uber for Business</div><div class="api-type">Ground transport</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--green)"></div><div><div class="api-name">Google Maps Platform</div><div class="api-type">Routes & places</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--pink)"></div><div><div class="api-name">Sherpa API</div><div class="api-type">Visa requirements</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--orange)"></div><div><div class="api-name">FlightAware</div><div class="api-type">Real-time flight status</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--orange)"></div><div><div class="api-name">OpenWeatherMap</div><div class="api-type">Weather & severe alerts</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--red)"></div><div><div class="api-name">US State Dept / MFA</div><div class="api-type">Travel advisories</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--purple)"></div><div><div class="api-name">Twilio</div><div class="api-type">SMS & voice calls</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--purple)"></div><div><div class="api-name">SendGrid</div><div class="api-type">Email delivery</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--purple)"></div><div><div class="api-name">Firebase Cloud Messaging</div><div class="api-type">Push notifications</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--blue)"></div><div><div class="api-name">Gemini Vision API</div><div class="api-type">Receipt OCR</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--green)"></div><div><div class="api-name">Razorpay / Visa API</div><div class="api-type">Corporate card sync</div></div></div>
+        <div class="api-pill"><div class="api-dot" style="background:var(--orange)"></div><div><div class="api-name">Travel Insured API</div><div class="api-type">Insurance validation</div></div></div>
+      </div>
+    </div>
+
+  </div><!-- /architecture -->
+
+  <!-- SECURITY STRIP -->
+  <div class="security-strip">
+    <div class="sec-item">
+      <div class="sec-icon">🔒</div>
+      <div class="sec-label">Encryption</div>
+      <div class="sec-value">AES-256 at rest · TLS 1.3 in transit</div>
+    </div>
+    <div class="sec-item">
+      <div class="sec-icon">🌐</div>
+      <div class="sec-label">Network</div>
+      <div class="sec-value">VPC 10.0.0.0/16 · No public IPs on data layer</div>
+    </div>
+    <div class="sec-item">
+      <div class="sec-icon">👤</div>
+      <div class="sec-label">Identity</div>
+      <div class="sec-value">Workload Identity · RBAC · IAP · MFA</div>
+    </div>
+    <div class="sec-item">
+      <div class="sec-icon">📜</div>
+      <div class="sec-label">Compliance</div>
+      <div class="sec-value">DPDP Act · GDPR · SOC 2 · ISO 27001</div>
+    </div>
+    <div class="sec-item">
+      <div class="sec-icon">🔍</div>
+      <div class="sec-label">Observability</div>
+      <div class="sec-value">Cloud Logging · Trace · PagerDuty · SLOs</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:40px;">
+    <span style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);">
+      A2A Travel Management Platform · System Architecture v1.0 · Google Cloud · Confidential
+    </span>
+  </div>
+
+</div><!-- /wrapper -->
+
+</body>
+</html>
